@@ -50,4 +50,16 @@ config PANEL_ACX565AKM
 	select BACKLIGHT_CLASS_DEVICE
 	help
 	  This is the LCD panel used on Nokia N900
+
+config PANEL_CMEL_OLED43
+        tristate "Liquidware BeagleTouch OLED Panel"
+        depends on OMAP2_DSS                                                
+        help
+          Panel used on the Liquidware BeagleTouch screen for the BeagleBoard
+
+config PANEL_LIQUIDWARE_BEAGLETOUCH
+	tristate "Liquidware BeagleTouch LCD Panel"
+	depends on OMAP2_DSS
+	help
+	  Panel used on the Liquidware BeagleTouch screen for the BeagleBoard
 endmenu
