@@ -676,6 +676,17 @@ config TOUCHSCREEN_PCAP
 	  To compile this driver as a module, choose M here: the
 	  module will be called pcap_ts.
 
+config TOUCHSCREEN_LIQUIDWARE_PCAP
+	tristate "Liquidware PCap based touchscreens"
+	depends on I2C
+	help
+	  Say Y here if you have a Liquidware PCap based touchscreen.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called liquidware_pcap.
+
 config TOUCHSCREEN_TPS6507X
 	tristate "TPS6507x based touchscreens"
 	depends on I2C
