@@ -335,9 +335,9 @@ static struct regulator_consumer_supply beagle_vdvi_supply =
 #define RESET_PIN		129 //openpad
 #define PANEL_PWR_PIN	143
 
-#define OMAP3_BEAGLETOUCH_TS_INT 	136 //BeagleTouch
-//#define OMAP3_BEAGLETOUCH_TS_INT 	15  //OpenPad
-#define OMAP3_BEAGLETOUCH_TS_RESET	158 //BeagleTouch
+//#define OMAP3_BEAGLETOUCH_TS_INT 	136 //BeagleTouch
+#define OMAP3_BEAGLETOUCH_TS_INT 	15  //OpenPad
+#define OMAP3_BEAGLETOUCH_TS_RESET	158 //OpenPad
 
 static void __init beagle_display_init(void)
 {
@@ -712,7 +712,7 @@ static struct i2c_board_info __initdata beagle_i2c_eeprom[] = {
 
 static struct i2c_board_info __initdata beagle_i2c2_boardinfo[] = {
 	{
-		I2C_BOARD_INFO("bq27200_battery", 0x0B),
+		I2C_BOARD_INFO("itaniumpack_battery", 0x0B),
 	},
 };
 
@@ -935,11 +935,13 @@ static struct omap_board_mux board_mux[] __initdata = {
 	OMAP3_MUX(UART2_CTS, OMAP_MUX_MODE2 | OMAP_PIN_OUTPUT), //BeagleTouch
 
 	/* Touchscreen */
-	//OMAP3_MUX(ETK_D1, OMAP_MUX_MODE4 | OMAP_PIN_INPUT_PULLUP), //OpenPad Touch INT
+	OMAP3_MUX(ETK_D1, OMAP_MUX_MODE4 | OMAP_PIN_INPUT_PULLUP), //OpenPad Touch INT, GPIO 15
 	OMAP3_MUX(MCBSP1_DX, OMAP_MUX_MODE4 | OMAP_PIN_OUTPUT), //OpenPad Touch RESET
-	//OMAP3_MUX(SDMMC2_DAT4, OMAP_MUX_MODE3 | OMAP_PIN_INPUT_PULLUP), //BeagleTouch Touch INT
+
 #if 0
 	/* Liquidware BeagleTouch */
+	OMAP3_MUX(SDMMC2_DAT4, OMAP_MUX_MODE3 | OMAP_PIN_INPUT_PULLUP), //BeagleTouch Touch INT
+
 	OMAP3_MUX(SDMMC2_DAT7, OMAP_MUX_MODE4 | OMAP_PIN_OUTPUT),       //GPIO 139
 	OMAP3_MUX(UART2_TX,    OMAP_MUX_MODE4 | OMAP_PIN_INPUT_PULLUP), //GPIO 146
 	OMAP3_MUX(UART2_CTS,   OMAP_MUX_MODE4 | OMAP_PIN_OUTPUT),       //GPIO 144
