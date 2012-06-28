@@ -1,5 +1,5 @@
 /*
- * BQ27x00 battery driver
+ * Liquidware ItaniumPack battery driver
  *
  * Copyright (C) 2011 Chris Ladden <chris.ladden@liquidware.com>
  * Copyright (C) 2008 Rodolfo Giometti <giometti@linux.it>
@@ -31,7 +31,8 @@
 #undef DEBUG
 
 /* Battery update rate */
-#define BQ27200_DELAY	250
+#define ITANIUMPACK_READ_DELAY		250
+#define ITANIUMPACK_READ_DELAY_ERR	5000 /* read delay if error is detected */
 
 /* Registers */
 #define BQ20Z80_REG_MANUFACTURER_ACCESS	0x00
@@ -118,7 +119,7 @@ struct bq27x00_device_info {
 	struct power_supply	bat;
 	struct power_supply	mains;
 	struct power_supply	usb;
-
+	int 		work_delay;
 	struct i2c_client	*client;
 };
 
@@ -501,7 +502,7 @@ static int bq27x00_battery_ac_online(struct bq27x00_device_info *di)
 	ac_online = (((unsigned int)deviceid == 0x0007));
 
 	if (ac_online) {
-		di->ac_online_time += BQ27200_DELAY;
+		di->ac_online_time += di->work_delay;
 	}
 
 	return ac_online;
@@ -704,34 +705,34 @@ static int bq27x00_battery_get_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
-		val->intval = di->status; //bq27x00_battery_status(di);
+		val->intval = di->status;
 		break;
 	case POWER_SUPPLY_PROP_HEALTH:
-		val->intval = di->health; //bq27x00_battery_health(di);
+		val->intval = di->health;
 		break;
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
 		val->intval = POWER_SUPPLY_TECHNOLOGY_LIPO;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 	case POWER_SUPPLY_PROP_PRESENT:
-		val->intval = di->voltage_uV; //bq27x00_battery_voltage(di);
+		val->intval = di->voltage_uV;
 		if (psp == POWER_SUPPLY_PROP_PRESENT)
 			val->intval = val->intval <= 0 ? 0 : 1;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
-		val->intval = di->current_uA; //bq27x00_battery_current(di);
+		val->intval = di->current_uA;
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
-		val->intval = di->charge_rsoc; //bq27x00_battery_rsoc(di);
+		val->intval = di->charge_rsoc;
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
-		val->intval = di->temp_C; //bq27x00_battery_temperature(di);
+		val->intval = di->temp_C;
 		break;
 	case POWER_SUPPLY_PROP_TIME_TO_EMPTY_AVG:
-		val->intval = di->tte_avg; ///bq27x00_battery_time_to_empty_avg(di);
+		val->intval = di->tte_avg;
 		break;
 	case POWER_SUPPLY_PROP_TIME_TO_FULL_AVG:
-		val->intval = di->ttf_avg; //bq27x00_battery_time_to_full_avg(di);
+		val->intval = di->ttf_avg;
 		break;
 
 	default:
@@ -753,13 +754,21 @@ static void bq27x00_powersupply_init(struct bq27x00_device_info *di)
 	di->usb = bq27x00_usb;
 }
 
-static void bq27200_battery_work(struct work_struct *work)
+static void itaniumpack_battery_work(struct work_struct *work)
 {
 	struct bq27x00_device_info *di;
 
 	di = container_of(work, struct bq27x00_device_info, work.work);
 
 	di->temp_C = bq27x00_battery_temperature(di);
+	if (di->temp_C < 0) {
+		//di->work_delay = ITANIUMPACK_READ_DELAY_ERR;
+		//printk(KERN_ERR
+		//	   "itaniumpack: updating work every %dms\n",
+		//	   di->work_delay);
+		//goto work_out;
+	}
+
 	di->voltage_uV = bq27x00_battery_voltage(di);
 	di->current_uA = bq27x00_battery_current(di);
 	di->charge_rsoc = bq27x00_battery_rsoc(di);
@@ -793,7 +802,8 @@ static void bq27200_battery_work(struct work_struct *work)
 	power_supply_changed(&di->mains);
 	power_supply_changed(&di->usb);
 
-	schedule_delayed_work(&di->work, BQ27200_DELAY);
+work_out:
+	schedule_delayed_work(&di->work, di->work_delay);
 }
 
 
@@ -1074,49 +1084,45 @@ static DEVICE_ATTR(safety_status, 0444, show_safety_status, NULL);
 static void create_sysfs_entry(struct device *dev)
 {
 	if (device_create_file(dev, &dev_attr_ac_online_time))
-		printk(KERN_ERR "bq27200_battery: "
+		printk(KERN_ERR "itaniumpack_battery: "
 			"failed to create sysfs entry \n");
 	if (device_create_file(dev, &dev_attr_ac_current_limit))
-		printk(KERN_ERR "bq27200_battery: "
+		printk(KERN_ERR "itaniumpack_battery: "
 			"failed to create sysfs entry \n");
 	if (device_create_file(dev, &dev_attr_req_charge_current))
-		printk(KERN_ERR "bq27200_battery: "
+		printk(KERN_ERR "itaniumpack_battery: "
 			"failed to create sysfs entry \n");
 	if (device_create_file(dev, &dev_attr_req_charge_voltage))
-		printk(KERN_ERR "bq27200_battery: "
+		printk(KERN_ERR "itaniumpack_battery: "
 			"failed to create sysfs entry \n");
 	if (device_create_file(dev, &dev_attr_battery_status))
-		printk(KERN_ERR "bq27200_battery: "
+		printk(KERN_ERR "itaniumpack_battery: "
 			"failed to create sysfs entry \n");
 	if (device_create_file(dev, &dev_attr_cycle_count))
-		printk(KERN_ERR "bq27200_battery: "
+		printk(KERN_ERR "itaniumpack_battery: "
 			"failed to create sysfs entry \n");
 	if (device_create_file(dev, &dev_attr_charging_status))
-		printk(KERN_ERR "bq27200_battery: "
+		printk(KERN_ERR "itaniumpack_battery: "
 			"failed to create sysfs entry \n");
 	if (device_create_file(dev, &dev_attr_man_status))
-		printk(KERN_ERR "bq27200_battery: "
+		printk(KERN_ERR "itaniumpack_battery: "
 			"failed to create sysfs entry \n");
 	if (device_create_file(dev, &dev_attr_man_dev_type))
-		printk(KERN_ERR "bq27200_battery: "
+		printk(KERN_ERR "itaniumpack_battery: "
 			"failed to create sysfs entry \n");
 	if (device_create_file(dev, &dev_attr_man_firm_ver))
-		printk(KERN_ERR "bq27200_battery: "
+		printk(KERN_ERR "itaniumpack_battery: "
 			"failed to create sysfs entry \n");
 	if (device_create_file(dev, &dev_attr_current_now))
-		printk(KERN_ERR "bq27200_battery: "
+		printk(KERN_ERR "itaniumpack_battery: "
 			"failed to create sysfs entry \n");
 	if (device_create_file(dev, &dev_attr_safety_status))
-		printk(KERN_ERR "bq27200_battery: "
+		printk(KERN_ERR "itaniumpack_battery: "
 			"failed to create sysfs entry \n");
 }
 
 
-
-/*
- * BQ27200 specific code
- */
-static int bq27200_battery_probe(struct i2c_client *client,
+static int itaniumpack_battery_probe(struct i2c_client *client,
 				 const struct i2c_device_id *id)
 {
 	char *name;
@@ -1125,7 +1131,7 @@ static int bq27200_battery_probe(struct i2c_client *client,
 	int num;
 	int retval = 0;
 
-	printk(KERN_INFO "bq27200_battery_probe\n");
+	printk(KERN_INFO "itaniumpack_battery_probe\n");
 
 	/* Get new ID for the new battery device */
 	retval = idr_pre_get(&battery_id, GFP_KERNEL);
@@ -1137,7 +1143,7 @@ static int bq27200_battery_probe(struct i2c_client *client,
 	if (retval < 0)
 		return retval;
 
-	name = kasprintf(GFP_KERNEL, "bq27200-%d", num);
+	name = kasprintf(GFP_KERNEL, "itaniumpack-%d", num);
 	if (!name) {
 		dev_err(&client->dev, "failed to allocate device name\n");
 		retval = -ENOMEM;
@@ -1192,8 +1198,10 @@ static int bq27200_battery_probe(struct i2c_client *client,
 
 	create_sysfs_entry(&di->dev[0]);
 
-	INIT_DELAYED_WORK_DEFERRABLE(&di->work, bq27200_battery_work);
-	schedule_delayed_work(&di->work, BQ27200_DELAY);
+	INIT_DELAYED_WORK_DEFERRABLE(&di->work, itaniumpack_battery_work);
+
+	di->work_delay = ITANIUMPACK_READ_DELAY;
+	schedule_delayed_work(&di->work, di->work_delay);
 
 	return 0;
 
@@ -1211,7 +1219,7 @@ batt_failed_1:
 	return retval;
 }
 
-static int bq27200_battery_remove(struct i2c_client *client)
+static int itaniumpack_battery_remove(struct i2c_client *client)
 {
 	struct bq27x00_device_info *di = i2c_get_clientdata(client);
 
@@ -1232,42 +1240,42 @@ static int bq27200_battery_remove(struct i2c_client *client)
  * Module stuff
  */
 
-static const struct i2c_device_id bq27200_id[] = {
-	{ "bq27200_battery", 0 },
+static const struct i2c_device_id itaniumpack_id[] = {
+	{ "itaniumpack_battery", 0 },
 	{},
 };
 
-MODULE_DEVICE_TABLE(i2c, bq27200_id);
+MODULE_DEVICE_TABLE(i2c, itaniumpack_id);
 
-static struct i2c_driver bq27200_battery_driver = {
+static struct i2c_driver itaniumpack_battery_driver = {
 	.driver = {
 		.owner	= THIS_MODULE,
-		.name = "bq27200_battery",
+		.name = "itaniumpack_battery",
 	},
-	.probe = bq27200_battery_probe,
-	.remove = bq27200_battery_remove,
-	.id_table = bq27200_id,
+	.probe = itaniumpack_battery_probe,
+	.remove = itaniumpack_battery_remove,
+	.id_table = itaniumpack_id,
 };
 
-static int __init bq27x00_battery_init(void)
+static int __init itaniumpack_battery_init(void)
 {
 	int ret;
-	printk(KERN_INFO "bq27200_battery: init\n");
+	printk(KERN_INFO "itaniumpack_battery: init\n");
 
-	ret = i2c_add_driver(&bq27200_battery_driver);
+	ret = i2c_add_driver(&itaniumpack_battery_driver);
 	if (ret)
-		printk(KERN_ERR "Unable to register BQ27200 driver\n");
+		printk(KERN_ERR "Unable to register itaniumpack driver\n");
 
 	return ret;
 }
-module_init(bq27x00_battery_init);
+module_init(itaniumpack_battery_init);
 
-static void __exit bq27x00_battery_exit(void)
+static void __exit itaniumpack_battery_exit(void)
 {
-	i2c_del_driver(&bq27200_battery_driver);
+	i2c_del_driver(&itaniumpack_battery_driver);
 }
-module_exit(bq27x00_battery_exit);
+module_exit(itaniumpack_battery_exit);
 
 MODULE_AUTHOR("Chris Ladden <chris.ladden@liquidware.com>");
-MODULE_DESCRIPTION("BQ20z80 battery monitor driver");
+MODULE_DESCRIPTION("Liquidware ItaniumPack battery monitor driver");
 MODULE_LICENSE("GPL");
