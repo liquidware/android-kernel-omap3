@@ -434,7 +434,8 @@ static void liquidware_pcap_work(struct work_struct *work)
 		//range check
 		//filter pen down/up
 		//report pen down location or up
-		inrange = (t->sx < t->sampleValueMax) && (t->sy < t->sampleValueMax);
+		inrange = (t->sx > 0) && (t->sx < t->sampleValueMax) &&
+				(t->sy > 0) && (t->sy < t->sampleValueMax);
 
 		if (inrange) {
 			t->x = t->sx;
@@ -495,14 +496,14 @@ static void liquidware_pcap_work(struct work_struct *work)
 		t->prevPenDown = t->penDown;
 	}
 
-	//printk(KERN_ERR "%s\n", msg);
+	//printk(KERN_ERR "liquidware_pcap %s\n", msg);
 	input_sync(input);
 
-	if (ts->pendown)
+	//if (ts->pendown)
 		schedule_delayed_work(&ts->work,
 				      msecs_to_jiffies(TS_POLL_PERIOD));
-	else
-		enable_irq(ts->irq);
+	//else
+	//	enable_irq(ts->irq);
 }
 
 static irqreturn_t liquidware_pcap_irq(int irq, void *handle)
@@ -617,6 +618,10 @@ static int __devinit liquidware_pcap_probe(struct i2c_client *client,
 		goto err_free_irq;
 
 	i2c_set_clientdata(client, ts);
+
+	printk(KERN_INFO "liquidware_pcap_probe: Scheduling delayed work\n");
+	schedule_delayed_work(&ts->work,
+						  msecs_to_jiffies(TS_POLL_DELAY));
 
 	return 0;
 
